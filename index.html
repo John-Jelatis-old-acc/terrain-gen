@@ -1,194 +1,125 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<!-- Ok 3D is rendering I guess -->
-		<title>Attempt@3D</title>
+		<title>Attempt 1</title>
 		<link href="https://fonts.googleapis.com/css?family=VT323" rel="stylesheet">
 		<style>
-			canvas {
-				border: solid 4px;
-				border-color: #020;
-				background: rgba(0, 0, 0, 0.7);
-				position: fixed;
-				top: calc(50vh - 240px);
-				left: calc(50vw - 240px);
-				width: 480px;
-				height: 480px;
+			html {
+				align-items: center;
+				background: #000;
+				display: flex;
+				height: 100%;
+				justify-content: center;
+			}
+			canvas, div {
+				background: #000;
+				color: #3F0;
 			}
 			div {
-				font-size: 7vh;
-				line-height: 7vh;
-				font-weight: normal;
 				font-family: VT323;
-				background: #000;
+				font-size: 6vh;
 				position: fixed;
 				left: 0;
 				top: 0;
-				width: 100vw;
-				height: 100vh;
-				color: #3F0;
-				white-space: pre;
+				padding: 5vh 5vw;
+				width: 90vw;
+				height: 90vh;
+				z-index: -1;
 			}
-			.running canvas {
-				transition-duration: 1.0s;
-				border-color: #3F0;
-			}
-			.running div {
-				transition-duration: 1.0s;
-				color: #000;
+			canvas {
+				border: solid 3px #3F0;
+				z-index: 1;
 			}
 		</style>
-		<script>
-			function addLetter(l) {
-				document.querySelector('div').innerText = 
-				document.querySelector('div').innerText.substr(
-					0, document.querySelector('div').innerText.length - 1
-				) + l + '_';
-			}
-			var text = ([
-				'© 2019 John Jelatis',
-				' do not distribute ',
-				'',
-				' Special thanks to ',
-				'  - Me',
-				'  - Myself',
-				' and especially to',
-				'  - I',
-				' for making this',
-				' concept a reality',
-				'',
-				' > Press Enter',
-				''
-			]).join('\n'), ffs = 0, running = false, spd = 1;
-			function l() {
-				if(!running && Math.floor(ffs / (spd)) < text.length) {
-					if(ffs % (spd) == 0)
-						addLetter(text[Math.floor(ffs / (spd))]);
-					ffs ++;
-					requestAnimationFrame(l);
-				} else {
-					if(running) {
-						frame();
-						document.body.classList.toggle('running');
-					} else 
-						requestAnimationFrame(l);
+		<script name='noise' src='perlin.js'></script>
+		<script name='Vector'>
+			"use strict";
+			class Vector {
+				// Constructor
+				constructor(x = 0, y = 0, z = null) {
+					this.x = x;
+					this.y = y;
+					this.z = z;
 				}
-			};
-			addEventListener('keypress', e => {
-				running = running||(e.keyCode==13);
-				e.key.length == 1 ? addLetter(e.key) : '';
-			});
-			addEventListener('load', l);
-		</script>
-		<script>
-			const TAU = Math.PI * 2;
-			
-			function Vector2D(x, y) {
-				this.x = x;
-				this.y = y;
+				// To 2D
+				to2D(w, h) {
+					if(this.z == null)
+						return this;
+					return new Vector(w / 2 + this.x * this.z, h / 2 - this.y * this.z);
+				}
+				// Scale
+				getScale() {
+					return (this.z / 5);
+				}
 			}
-			function Vector3D(x, y, z) {
-				this.x = x;
-				this.y = y;
-				this.z = z;
-			}
+			// Store grid of points
+			const points = [],
+				length = 12,
+				width = 96;
 			
-			function Point(x, y, z, s) {
-				this.pos3d = new Vector3D(x, y, z);
-				this.shadow = new Vector2D(x * 1/z + 50, 50 * 1/z + 50);
-				this.pos2d = new Vector2D(x * 1/z + 50, y * 1/z + 50);
-				this.size = s;
-			}
-			Point.prototype.update = function() {
-				this.pos2d = new Vector2D(this.pos3d.x * 1/this.pos3d.z + 50, this.pos3d.y * 1/this.pos3d.z + 50);
-				this.shadow = new Vector2D(this.pos3d.x * 1/this.pos3d.z + 50, 55 * 1/this.pos3d.z + 50);
-			};
-			Point.prototype.draw = function(ctx) {
-				if(this.pos3d.z < 0)
-					return;
-				var s = 1 / this.pos3d.z * this.size;
-				ctx.beginPath();
-				ctx.fillStyle = '#121';
-				ctx.strokeStyle = '#000';
-				ctx.ellipse(this.shadow.x, this.shadow.y, s, s / 2, 0, 0, TAU);
-				ctx.fill();
-				ctx.stroke();
-				ctx.beginPath();
-				ctx.fillStyle = '#3F0';
-				ctx.strokeStyle = '#090';
-				ctx.arc(this.pos2d.x, this.pos2d.y, s, 0, TAU, false);
-				ctx.stroke();
-				ctx.fill();
-			}
+			// Set seed
+			noise.seed(Math.floor(Math.random() * 10e9));
 			
-			let canvas = document.createElement('canvas'),
-				context = canvas.getContext('2d');
+			// Generate points with Simplex 2D Noise
+			for(let x = -width/2; x < width/2; x += 0.5)
+				for(let z = 1; z < length; z += 0.125)
+					points.push(new Vector(x, 10 + 2 * Math.cos(noise.simplex2(x / 8, z / 2)), z));
 			
-			addEventListener('DOMContentLoaded', function() {
-				document.body.appendChild(canvas);
-			});
+			// Use WebGL and Canvas
+			const canvas = document.createElement('canvas'),
+				gl = canvas.getContext('webgl');
 			
-			let i = 0;
-			
-			canvas.width = 480;
+			// With these dimensions
+			canvas.width = 1280;
 			canvas.height = 480;
-			context.scale(canvas.width / 100, canvas.height / 100);
 			
-			let points = [
-				new Point(0, 0, 1.5, 8),
-				new Point(50, -20, 1.5, 4),
-				new Point(-50, 2, 1.5, 6)
-			];
-			let lines = [
-				[new Point(-50, 50, 2), new Vector2D(0, 100)],
-				[new Point(50, 50, 2), new Vector2D(100, 100)],
-				[new Point(-50, -50, 2), new Vector2D(0, 0)],
-				[new Point(50, -50, 2), new Vector2D(100, 0)],
-				[new Point(-50, 50, 2), new Point(-50, -50, 2)],
-				[new Point(50, -50, 2), new Point(-50, -50, 2)],
-				[new Point(50, -50, 2), new Point(50, 50, 2)],
-				[new Point(50, 50, 2), new Point(-50, 50, 2)],
-			];
+			// Log to the screen for some reason
+			function log(text, isHTML = false, clear = false) {
+				let i = 'inner' + (isHTML ? 'HTML' : 'Text'),
+					newLine = isHTML ? '<br />' : '\n';
+				document.querySelector('div')[i] = 
+					text + newLine + 
+					(clear ? '' : document.querySelector('div')[i]);
+			}
 			
-			var frame = function frame() {
-				context.clearRect(0, 0, 100, 100);
-				lines.forEach(line => {
-					context.beginPath();
-					if(line[0] instanceof Point)
-						context.moveTo(line[0].pos2d.x, line[0].pos2d.y);
-					else
-						context.moveTo(line[0].x, line[0].y);
-					if(line[1] instanceof Point)
-						context.lineTo(line[1].pos2d.x, line[1].pos2d.y);
-					else
-						context.lineTo(line[1].x, line[1].y);
-					context.stroke();
-				});
-				points.sort((a,b) => b.pos3d.z - a.pos3d.z);
-				points.forEach(a => {
-					if(!('vx' in a)) {
-						a.vx = Math.random() * 1 - 0.5000;
-						a.vy = Math.random() * 1 - 0.5000;
-						a.vz = Math.random() / 8 - 0.0625;
-					}
-					if(a.pos3d.z > 2 || a.pos3d.z <= 1)
-						a.vz *= -1;
-					if(a.pos3d.y > 50 || a.pos3d.y < -50)
-						a.vy *= -1;
-					if(a.pos3d.x > 50 || a.pos3d.x < -50)
-						a.vx *= -1;
-					a.pos3d.x += a.vx;
-					a.pos3d.y += a.vy;
-					a.pos3d.z += a.vz;
-					a.vy += 0.1;
-					a.update();
-				});
-				points.forEach(point => point.draw(context));
-				requestAnimationFrame(frame);
-			};
+			// I commented out FPS Code 
+			// I don't care how fast it works 
+			// I care that it works 
+			
+			// let frames = 0,
+			// 	fps = 0,
+			// 	lastUpdate = new Date().getTime();
+			
+			function doFrame() {
+				// let now = new Date().getTime();
+				// frames++;
+				// if(lastUpdate + 999 < now) {
+				// 	lastUpdate = now;
+				// 	fps = frames;
+				// 	frames = 0;
+				// 	log(fps + ' fps', true, true);
+				// }
+				gl.viewport(0, 0, canvas.width, canvas.height);
+				gl.clearColor(0.0, 0.0, 0.0, 0.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				for(let pid = 0; pid < points.length; pid++) {
+					let p = points[pid],
+						p2d = p.to2D(canvas.width, canvas.height),
+						s = 1;
+					gl.clearColor(0.1, 1.0, 0.0, 1.0);
+					gl.scissor(p2d.x - s/2, p2d.y - s/2, s, s);
+					gl.clear(gl.COLOR_BUFFER_BIT);
+					p.y = 10 + 2.5 * Math.cos(noise.simplex3(p.x / 8, p.z / 2, new Date().getTime()/5000));
+				}
+				requestAnimationFrame(doFrame);
+			}
+			
+			addEventListener('DOMContentLoaded', e => {
+				document.body.appendChild(document.createElement('div'));
+				document.body.appendChild(canvas);
+				gl.enable(gl.SCISSOR_TEST);
+				doFrame();
+			});
 		</script>
 	</head>
-	<body>
-		<div></div>
-	</body>
 </html>
