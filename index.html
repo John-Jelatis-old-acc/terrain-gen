@@ -1,123 +1,96 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>Attempt 1</title>
-		<link href="https://fonts.googleapis.com/css?family=VT323" rel="stylesheet">
+		<title>Attempt 2</title>
 		<style>
 			html {
-				align-items: center;
-				background: #000;
 				display: flex;
-				height: 100%;
 				justify-content: center;
-			}
-			canvas, div {
-				background: #000;
-				color: #3F0;
-			}
-			div {
-				font-family: VT323;
-				font-size: 6vh;
-				position: fixed;
-				left: 0;
-				top: 0;
-				padding: 5vh 5vw;
-				width: 90vw;
-				height: 90vh;
-				z-index: -1;
+				align-items: center;
+				height: 100%;
+				background-color: #000;
 			}
 			canvas {
-				border: solid 3px #3F0;
-				z-index: 1;
+				/* Dimensions */
+				width: 640px;
+				height: 480px;
+				/* Colour */
+				background: #000;
+				/* Border */
+				border-radius: 12px;
+				border-style: solid;
+				border-color: #3F0;
+				border-width: 1px;
 			}
 		</style>
 		<script name='noise' src='perlin.js'></script>
-		<script name='Vector'>
-			"use strict";
-			class Vector {
-				// Constructor
-				constructor(x = 0, y = 0, z = null) {
+		<script>window.onerror = function() { alert(Array.from(arguments).join('\n')); };</script>
+		<script>
+			'use strict';
+			function Vector(x = 0, y = 0, z = null) {
 					this.x = x;
 					this.y = y;
 					this.z = z;
-				}
-				// To 2D
-				to2D(w, h) {
-					if(this.z == null)
-						return this;
-					return new Vector(w / 2 + this.x * this.z, h / 2 - this.y * this.z);
-				}
-				// Scale
-				getScale() {
-					return (this.z / 5);
-				}
-			}
-			// Store grid of points
-			const points = [],
-				length = 12,
-				width = 96;
+			};
+			Vector.prototype.to2D = function(w, h) {
+				return new Vector(w / 2 + this.x * (this.getScale() * 2), h / 2 - this.y * 4 * (this.getScale()));
+			};
+			Vector.prototype.getScale = function() {
+				return (this.z / 3);
+			};
 			
-			// Set seed
-			noise.seed(Math.floor(Math.random() * 10e9));
-			
-			// Generate points with Simplex 2D Noise
-			for(let x = -width/2; x < width/2; x += 0.5)
-				for(let z = 1; z < length; z += 0.125)
-					points.push(new Vector(x, 10 + 2 * Math.cos(noise.simplex2(x / 8, z / 2)), z));
-			
-			// Use WebGL and Canvas
-			const canvas = document.createElement('canvas'),
-				gl = canvas.getContext('webgl');
-			
-			// With these dimensions
-			canvas.width = 1280;
-			canvas.height = 480;
-			
-			// Log to the screen for some reason
-			function log(text, isHTML = false, clear = false) {
-				let i = 'inner' + (isHTML ? 'HTML' : 'Text'),
-					newLine = isHTML ? '<br />' : '\n';
-				document.querySelector('div')[i] = 
-					text + newLine + 
-					(clear ? '' : document.querySelector('div')[i]);
+			var points = [],
+				w = 256, 
+				h = 72;
+			for(;points.length < w * h;) {
+				var x = Math.floor(points.length % (w) - w / 2) / 4,
+					y = 10 + Math.floor(points.length / (w)) / 1.5;
+				points.push(new Vector(x, -3 + 2 * noise.simplex2(x / 16, y / 16) / 4, y));
 			}
 			
-			// I commented out FPS Code 
-			// I don't care how fast it works 
-			// I care that it works 
+			var canvas = document.createElement('canvas'),
+				context = canvas.getContext('2d', { alpha: false }),
+				imgData = null;
 			
-			// let frames = 0,
-			// 	fps = 0,
-			// 	lastUpdate = new Date().getTime();
+			var frames = 0,
+				lastFpsUpd = 0,
+				fpsRate = 0;
+			
+			// function getPoint(x, y) {
+			// 	return points[~~((9 + y / 2) * canvas.width + (x / 4))];
+			// }
 			
 			function doFrame() {
-				// let now = new Date().getTime();
-				// frames++;
-				// if(lastUpdate + 999 < now) {
-				// 	lastUpdate = now;
-				// 	fps = frames;
-				// 	frames = 0;
-				// 	log(fps + ' fps', true, true);
-				// }
-				gl.viewport(0, 0, canvas.width, canvas.height);
-				gl.clearColor(0.0, 0.0, 0.0, 0.0);
-				gl.clear(gl.COLOR_BUFFER_BIT);
-				for(let pid = 0; pid < points.length; pid++) {
-					let p = points[pid],
-						p2d = p.to2D(canvas.width, canvas.height),
-						s = 1;
-					gl.clearColor(0.1, 1.0, 0.0, 1.0);
-					gl.scissor(p2d.x - s/2, p2d.y - s/2, s, s);
-					gl.clear(gl.COLOR_BUFFER_BIT);
-					p.y = 10 + 2.5 * Math.cos(noise.simplex3(p.x / 8, p.z / 2, new Date().getTime()/5000));
+				context.fillRect(0, 0, canvas.width, canvas.height);
+				var now = new Date().getTime();
+				frames ++;
+				if(lastFpsUpd < now - 999) {
+					lastFpsUpd = now;
+					fpsRate = frames;
+					document.title = frames;
+					frames = 0;
 				}
+				imgData = context.getImageData(0, 0, canvas.width, canvas.height);
+				// points.sort(function(a, b) { return b.z - a.z; });
+				points.forEach(function(p) {
+					var p2d = p.to2D(canvas.width, canvas.height);
+					p.y = -3 + 2 * noise.simplex2(p.x / 16 + new Date().getTime() / 2500, p.z / 16) / 4;
+					if(p2d.x > imgData.width || p2d.x < 0
+					|| p2d.y < 0 || p2d.y > imgData.height)
+						return;
+					imgData.data[Math.floor(Math.floor(p2d.y) * imgData.width + p2d.x) * 4 + 0] = 60;
+					imgData.data[Math.floor(Math.floor(p2d.y) * imgData.width + p2d.x) * 4 + 1] = 255;
+					imgData.data[Math.floor(Math.floor(p2d.y) * imgData.width + p2d.x) * 4 + 2] = 60;
+					imgData.data[Math.floor(Math.floor(p2d.y) * imgData.width + p2d.x) * 4 + 3] = 255;
+				});
+				context.putImageData(imgData, 0, 0);
 				requestAnimationFrame(doFrame);
 			}
 			
-			addEventListener('DOMContentLoaded', e => {
-				document.body.appendChild(document.createElement('div'));
+			addEventListener('DOMContentLoaded', function() {
 				document.body.appendChild(canvas);
-				gl.enable(gl.SCISSOR_TEST);
+				canvas.width = 640;
+				canvas.height = canvas.width * 0.75;
 				doFrame();
 			});
 		</script>
